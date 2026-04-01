@@ -3,122 +3,120 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>BW Messenger</title>
+    <title>Messenger</title>
 
-    <!-- 1. ПОДКЛЮЧЕНИЕ БИБЛИОТЕК (Исправлено) -->
-    <script src="https://gstatic.com"></script>
+    <!-- 1. ПОДКЛЮЧАЕМ FIREBASE СРАЗУ В ГОЛОВЕ ФАЙЛА -->
     <script src="https://gstatic.com"></script>
     <script src="https://gstatic.com"></script>
 
     <style>
-        body { background: #000; color: #fff; font-family: 'Courier New', monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
-        .full-screen-auth { position: fixed; inset: 0; background: #000; z-index: 1000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
-        .auth-box { border: 1px solid #fff; padding: 30px; text-align: center; }
-        #player-container { position: fixed; top: 10px; left: 10px; z-index: 100; background: #000; border: 1px solid #fff; padding: 10px; width: 200px; }
-        .player-btn { background: #000; color: #fff; border: 1px solid #fff; cursor: pointer; padding: 5px; font-size: 10px; margin: 2px; text-transform: uppercase; }
-        #chat-container { display: none; flex-direction: column; height: 100%; padding-top: 110px; }
+        body { background: #000; color: #fff; font-family: monospace; margin: 0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
+        .screen { position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
+        .box { border: 1px solid #fff; padding: 20px; text-align: center; }
+        input, button { background: #000; color: #fff; border: 1px solid #fff; padding: 10px; margin: 5px; font-family: monospace; }
+        button:hover { background: #fff; color: #000; cursor: pointer; }
+        #chat-ui { display: none; flex-direction: column; height: 100%; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; border-bottom: 1px solid #fff; }
-        #controls { display: flex; padding: 15px; gap: 10px; }
-        input { background: #000; color: #fff; border: 1px solid #fff; padding: 10px; }
-        .msg { border-left: 2px solid #fff; padding-left: 10px; margin-bottom: 10px; }
+        .msg { margin-bottom: 10px; border-left: 2px solid #fff; padding-left: 10px; }
+        #controls { display: flex; padding: 10px; gap: 5px; }
+        #msg-input { flex: 1; }
+        #player { position: fixed; top: 10px; left: 10px; border: 1px solid #fff; padding: 5px; font-size: 10px; z-index: 500; background: #000; }
     </style>
 </head>
 <body>
 
-    <!-- ЭТАП 1: ГЛАВНЫЙ КОД -->
-    <div id="gate-screen" class="full-screen-auth">
-        <div class="auth-box">
+    <!-- ШАГ 1 -->
+    <div id="step1" class="screen">
+        <div class="box">
             <h3>SYSTEM LOCK</h3>
             <input type="password" id="gate-pass" placeholder="11111">
-            <button class="player-btn" onclick="checkGate()">UNLOCK</button>
+            <button onclick="checkGate()">UNLOCK</button>
         </div>
     </div>
 
-    <!-- ЭТАП 2: ЛОГИН -->
-    <div id="auth-screen" class="full-screen-auth" style="display: none;">
-        <div class="auth-box">
+    <!-- ШАГ 2 -->
+    <div id="step2" class="screen" style="display: none;">
+        <div class="box">
             <h3>IDENTIFY</h3>
-            <input type="password" id="user-pass" placeholder="PASSWORD...">
-            <button class="player-btn" onclick="login()">ENTER</button>
+            <input type="password" id="user-pass" placeholder="PASSWORD">
+            <button onclick="login()">ENTER</button>
         </div>
-    </div>
-
-    <!-- ПЛЕЕР -->
-    <div id="player-container">
-        <div id="track-title" style="font-size: 11px; margin-bottom: 5px;">OFFLINE</div>
-        <audio id="audio"></audio>
-        <button class="player-btn" onclick="togglePlay()">PLAY/PAUSE</button>
     </div>
 
     <!-- ЧАТ -->
-    <div id="chat-container">
+    <div id="chat-ui">
+        <div id="player">
+            <div id="track-name">OFFLINE</div>
+            <button onclick="toggleAudio()">PLAY/PAUSE</button>
+            <audio id="audio" src=""></audio>
+        </div>
         <div id="messages"></div>
         <div id="controls">
-            <input type="text" id="msg-input" placeholder="Message..." style="flex:1">
-            <button class="player-btn" onclick="sendMessage()">SEND</button>
+            <input type="text" id="msg-input" placeholder="Message...">
+            <button onclick="send()">SEND</button>
         </div>
     </div>
 
 <script>
-    // 2. ВСЕ ПЕРЕМЕННЫЕ В САМОМ НАЧАЛЕ (Исправление ошибки инициализации)
-    var currentUser = ""; 
-    const accounts = {
-        "ORANGE19411": "Апельсинка",
-        "dachkatze1188": "дакатзе"
+    // СНАЧАЛА ОБЪЯВЛЯЕМ ВСЕ ПЕРЕМЕННЫЕ (Чтобы не было ошибок "before initialization")
+    var currentUser = "";
+    var accounts = {
+        "ORANGE19411": "Апельсинка Зарина",
+        "dachkatze1188": "дакатзе софи"
     };
 
-    const firebaseConfig = {
+    var firebaseConfig = {
         apiKey: "AIzaSyAvfrN1CC4plLtTppWY8B-rqxl3s54tXVI",
-        authDomain: "://firebaseapp.com",
+        databaseURL: "https://firebasedatabase.app",
         projectId: "chat84596",
-        storageBucket: "chat84596.firebasestorage.app",
-        messagingSenderId: "270727647024",
-        appId: "1:270727647024:web:f35eb59998cdc7752d42f5",
-        databaseURL: "https://firebasedatabase.app"
+        appId: "1:270727647024:web:f35eb59998cdc7752d42f5"
     };
 
-    // 3. ЗАПУСК FIREBASE
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
+    // ПРОВЕРЯЕМ FIREBASE
+    if (typeof firebase !== 'undefined') {
+        firebase.initializeApp(firebaseConfig);
+        var db = firebase.database();
+    }
 
     function checkGate() {
         if (document.getElementById('gate-pass').value === "11111") {
-            document.getElementById('gate-screen').style.display = 'none';
-            document.getElementById('auth-screen').style.display = 'flex';
-        } else { alert("ACCESS DENIED"); }
+            document.getElementById('step1').style.display = 'none';
+            document.getElementById('step2').style.display = 'flex';
+        } else { alert("WRONG GATE CODE"); }
     }
 
     function login() {
-        const pass = document.getElementById('user-pass').value;
-        if (accounts[pass]) {
-            currentUser = accounts[pass];
-            document.getElementById('auth-screen').style.display = 'none';
-            document.getElementById('chat-container').style.display = 'flex';
+        var p = document.getElementById('user-pass').value;
+        if (accounts[p]) {
+            currentUser = accounts[p];
+            document.getElementById('step2').style.display = 'none';
+            document.getElementById('chat-ui').style.display = 'flex';
             loadMessages();
-        } else { alert("WRONG PASSWORD"); }
+        } else { alert("ACCESS DENIED"); }
     }
 
-    function sendMessage() {
-        const t = document.getElementById('msg-input').value;
-        if (!t) return;
-        db.ref("messages").push({ user: currentUser, text: t, time: Date.now() });
-        document.getElementById('msg-input').value = "";
+    function send() {
+        var input = document.getElementById('msg-input');
+        if (input.value && currentUser && db) {
+            db.ref("messages").push({ user: currentUser, text: input.value, timestamp: Date.now() });
+            input.value = "";
+        }
     }
 
     function loadMessages() {
-        db.ref("messages").limitToLast(30).on("child_added", (snap) => {
-            const d = snap.val();
-            const m = document.createElement("div");
+        db.ref("messages").limitToLast(50).on("child_added", function(s) {
+            var d = s.val();
+            var m = document.createElement("div");
             m.className = "msg";
-            m.innerHTML = `<b>${d.user}:</b> ${d.text}`;
+            m.innerHTML = "<b>" + d.user + ":</b> " + d.text;
             document.getElementById("messages").appendChild(m);
             document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
         });
     }
 
-    function togglePlay() { 
-        const a = document.getElementById('audio');
-        a.paused ? a.play() : a.pause(); 
+    function toggleAudio() {
+        var a = document.getElementById('audio');
+        a.paused ? a.play() : a.pause();
     }
 </script>
 </body>
