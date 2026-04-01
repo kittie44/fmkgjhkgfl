@@ -4,119 +4,84 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Messenger</title>
-
-    <!-- 1. ПОДКЛЮЧАЕМ FIREBASE СРАЗУ В ГОЛОВЕ ФАЙЛА -->
-    <script src="https://gstatic.com"></script>
-    <script src="https://gstatic.com"></script>
-
+    <!-- ИСПОЛЬЗУЕМ ЗЕРКАЛА (Cloudflare), ИХ СЛОЖНЕЕ ЗАБЛОКИРОВАТЬ -->
+    <script src="https://cloudflare.com"></script>
+    <script src="https://cloudflare.com"></script>
     <style>
         body { background: #000; color: #fff; font-family: monospace; margin: 0; overflow: hidden; height: 100vh; display: flex; flex-direction: column; }
-        .screen { position: fixed; inset: 0; background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 1000; }
+        .screen { position: fixed; inset: 0; background: #000; display: flex; align-items: center; justify-content: center; z-index: 1000; flex-direction: column; }
         .box { border: 1px solid #fff; padding: 20px; text-align: center; }
-        input, button { background: #000; color: #fff; border: 1px solid #fff; padding: 10px; margin: 5px; font-family: monospace; }
-        button:hover { background: #fff; color: #000; cursor: pointer; }
-        #chat-ui { display: none; flex-direction: column; height: 100%; }
+        input, button { background: #000; color: #fff; border: 1px solid #fff; padding: 10px; margin: 5px; }
+        #chat-ui { display: none; flex-direction: column; height: 100%; padding-top: 20px; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; border-bottom: 1px solid #fff; }
         .msg { margin-bottom: 10px; border-left: 2px solid #fff; padding-left: 10px; }
         #controls { display: flex; padding: 10px; gap: 5px; }
-        #msg-input { flex: 1; }
-        #player { position: fixed; top: 10px; left: 10px; border: 1px solid #fff; padding: 5px; font-size: 10px; z-index: 500; background: #000; }
+        #m-i { flex: 1; }
     </style>
 </head>
 <body>
-
-    <!-- ШАГ 1 -->
-    <div id="step1" class="screen">
-        <div class="box">
-            <h3>SYSTEM LOCK</h3>
-            <input type="password" id="gate-pass" placeholder="11111">
-            <button onclick="checkGate()">UNLOCK</button>
-        </div>
-    </div>
-
-    <!-- ШАГ 2 -->
-    <div id="step2" class="screen" style="display: none;">
-        <div class="box">
-            <h3>IDENTIFY</h3>
-            <input type="password" id="user-pass" placeholder="PASSWORD">
-            <button onclick="login()">ENTER</button>
-        </div>
-    </div>
-
-    <!-- ЧАТ -->
+    <div id="s1" class="screen"><div class="box"><h3>SYSTEM LOCK</h3><input type="password" id="g-p" placeholder="11111"><button onclick="go1()">OK</button></div></div>
+    <div id="s2" class="screen" style="display:none"><div class="box"><h3>IDENTIFY</h3><input type="password" id="u-p" placeholder="PASS"><button onclick="go2()">OK</button></div></div>
     <div id="chat-ui">
-        <div id="player">
-            <div id="track-name">OFFLINE</div>
-            <button onclick="toggleAudio()">PLAY/PAUSE</button>
-            <audio id="audio" src=""></audio>
-        </div>
         <div id="messages"></div>
-        <div id="controls">
-            <input type="text" id="msg-input" placeholder="Message...">
-            <button onclick="send()">SEND</button>
-        </div>
+        <div id="controls"><input type="text" id="m-i"><button onclick="send()">SEND</button></div>
     </div>
-
 <script>
-    // СНАЧАЛА ОБЪЯВЛЯЕМ ВСЕ ПЕРЕМЕННЫЕ (Чтобы не было ошибок "before initialization")
-    var currentUser = "";
-    var accounts = {
-        "ORANGE19411": "Апельсинка Зарина",
-        "dachkatze1188": "дакатзе софи"
-    };
-
-    var firebaseConfig = {
+    var accs = {"ORANGE19411": "Зарина", "dachkatze1188": "Софи"};
+    var user = "";
+    var cfg = {
         apiKey: "AIzaSyAvfrN1CC4plLtTppWY8B-rqxl3s54tXVI",
         databaseURL: "https://firebasedatabase.app",
-        projectId: "chat84596",
-        appId: "1:270727647024:web:f35eb59998cdc7752d42f5"
+        projectId: "chat84596"
     };
 
-    // ПРОВЕРЯЕМ FIREBASE
-    if (typeof firebase !== 'undefined') {
-        firebase.initializeApp(firebaseConfig);
-        var db = firebase.database();
+    // БЕЗОПАСНЫЙ ЗАПУСК
+    function init() {
+        if (typeof firebase !== 'undefined') {
+            firebase.initializeApp(cfg);
+            window.db = firebase.database();
+            console.log("Firebase OK");
+        } else {
+            alert("ОШИБКА: Библиотеки заблокированы. ВКЛЮЧИ VPN!");
+        }
+    }
+    init();
+
+    function go1() {
+        if (document.getElementById('g-p').value === "11111") {
+            document.getElementById('s1').style.display = 'none';
+            document.getElementById('s2').style.display = 'flex';
+        }
     }
 
-    function checkGate() {
-        if (document.getElementById('gate-pass').value === "11111") {
-            document.getElementById('step1').style.display = 'none';
-            document.getElementById('step2').style.display = 'flex';
-        } else { alert("WRONG GATE CODE"); }
-    }
-
-    function login() {
-        var p = document.getElementById('user-pass').value;
-        if (accounts[p]) {
-            currentUser = accounts[p];
-            document.getElementById('step2').style.display = 'none';
+    function go2() {
+        var p = document.getElementById('u-p').value;
+        if (accs[p]) {
+            user = accs[p];
+            document.getElementById('s2').style.display = 'none';
             document.getElementById('chat-ui').style.display = 'flex';
-            loadMessages();
+            load();
         } else { alert("ACCESS DENIED"); }
     }
 
     function send() {
-        var input = document.getElementById('msg-input');
-        if (input.value && currentUser && db) {
-            db.ref("messages").push({ user: currentUser, text: input.value, timestamp: Date.now() });
-            input.value = "";
+        var i = document.getElementById('m-i');
+        if (i.value && window.db) {
+            window.db.ref("messages").push({ u: user, t: i.value });
+            i.value = "";
         }
     }
 
-    function loadMessages() {
-        db.ref("messages").limitToLast(50).on("child_added", function(s) {
+    function load() {
+        if (!window.db) return;
+        window.db.ref("messages").limitToLast(50).on("child_added", function(s) {
             var d = s.val();
             var m = document.createElement("div");
             m.className = "msg";
-            m.innerHTML = "<b>" + d.user + ":</b> " + d.text;
+            m.innerHTML = "<b>" + d.u + ":</b> " + d.t;
             document.getElementById("messages").appendChild(m);
             document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
         });
-    }
-
-    function toggleAudio() {
-        var a = document.getElementById('audio');
-        a.paused ? a.play() : a.pause();
     }
 </script>
 </body>
