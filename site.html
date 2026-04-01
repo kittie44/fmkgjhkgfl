@@ -2,59 +2,149 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Chat</title>
-    <!-- Используем одну компактную ссылку, она обычно пролетает через блокировки -->
-    <script src="https://gstatic.com"></script>
-    <script src="https://gstatic.com"></script>
+    <title>BW Messenger</title>
+    <!-- ЗАПАСНЫЕ ССЫЛКИ, КОТОРЫЕ ТРУДНО ЗАБЛОКИРОВАТЬ -->
+    <script src="https://cloudflare.com"></script>
+    <script src="https://cloudflare.com"></script>
+    <script src="https://cloudflare.com"></script>
+
     <style>
-        body { background: #000; color: #fff; font-family: monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        .screen { position: fixed; inset: 0; background: #000; display: flex; align-items: center; justify-content: center; z-index: 1000; flex-direction: column; border: 5px solid #fff; }
-        input, button { background: #000; color: #fff; border: 1px solid #fff; padding: 15px; margin: 10px; font-size: 18px; }
-        #chat-ui { display: none; flex-direction: column; height: 100%; }
+        body { background: #000; color: #fff; font-family: monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        #player-box { position: fixed; top: 10px; left: 10px; z-index: 500; background: #000; border: 1px solid #fff; padding: 10px; width: 220px; }
+        .marquee { overflow: hidden; white-space: nowrap; border-bottom: 1px solid #fff; margin-bottom: 8px; height: 20px; }
+        .marquee span { display: inline-block; animation: scroll 10s linear infinite; font-size: 14px; padding-left: 100%; }
+        @keyframes scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-200%); } }
+        #playlist { display: none; background: #000; border: 1px solid #fff; margin-top: 10px; max-height: 150px; overflow-y: auto; padding: 5px; }
+        .track-item { cursor: pointer; padding: 5px; border-bottom: 1px solid #222; font-size: 12px; }
+        .track-item:hover { background: #fff; color: #000; }
+        .full-screen { position: fixed; inset: 0; background: #000; z-index: 1000; display: flex; align-items: center; justify-content: center; flex-direction: column; }
+        .box { border: 1px solid #fff; padding: 30px; text-align: center; }
+        input, button { background: #000; color: #fff; border: 1px solid #fff; padding: 10px; margin: 5px; font-family: monospace; }
+        #chat-ui { display: none; flex-direction: column; height: 100%; padding-top: 120px; }
         #messages { flex: 1; overflow-y: auto; padding: 20px; }
-        .msg { margin-bottom: 15px; border-left: 3px solid #fff; padding-left: 10px; }
-        #controls { display: flex; padding: 10px; border-top: 1px solid #fff; }
+        .msg { border-left: 3px solid #fff; padding-left: 10px; margin-bottom: 15px; }
+        #controls { display: flex; padding: 15px; border-top: 1px solid #fff; gap: 10px; }
         #m-i { flex: 1; }
     </style>
 </head>
 <body>
-    <div id="s1" class="screen"><h3>STEP 1: 11111</h3><input type="password" id="g-p"><button onclick="go1()">OK</button></div>
-    <div id="s2" class="screen" style="display:none"><h3>STEP 2: PASS</h3><input type="password" id="u-p"><button onclick="go2()">OK</button></div>
+
+    <div id="step1" class="full-screen">
+        <div class="box"><h3>SYSTEM LOCK</h3><input type="password" id="g-p" placeholder="11111"><button onclick="go1()">UNLOCK</button></div>
+    </div>
+
+    <div id="step2" class="full-screen" style="display:none">
+        <div class="box"><h3>IDENTIFY</h3><input type="password" id="u-p" placeholder="PASSWORD"><button onclick="go2()">ENTER</button></div>
+    </div>
+
+    <div id="player-box">
+        <div class="marquee"><span id="track-title">ОСТАНОВЛЕНО</span></div>
+        <audio id="audio"></audio>
+        <button onclick="toggleAudio()" id="play-btn">PLAY</button>
+        <button onclick="document.getElementById('playlist').style.display = (document.getElementById('playlist').style.display === 'block' ? 'none' : 'block')">СПИСОК</button>
+        <div id="playlist">
+            <input type="text" id="music-search" placeholder="Поиск..." onkeyup="filterMusic()">
+            <div id="list-items">
+                <div class="track-item" onclick="playTrack('ССЫЛКА_1', 'two of hearts')">two of hearts</div>
+                <div class="track-item" onclick="playTrack('ССЫЛКА_2', 'two virgins')">two virgins</div>
+                <div class="track-item" onclick="playTrack('ССЫЛКА_3', 'give`em hell kid')">give`em hell kid</div>
+            </div>
+        </div>
+    </div>
+
     <div id="chat-ui">
         <div id="messages"></div>
-        <div id="controls"><input type="text" id="m-i"><button onclick="send()">SEND</button></div>
+        <div id="controls">
+            <input type="file" id="f-i" style="display:none" onchange="uploadFile()">
+            <button onclick="document.getElementById('f-i').click()">📎</button>
+            <input type="text" id="m-i" placeholder="Сообщение...">
+            <button onclick="send()">SEND</button>
+        </div>
     </div>
+
 <script>
-    var accs = {"ORANGE19411": "Зарина", "dachkatze1188": "Софи"};
     var user = "";
-    var cfg = {
-        databaseURL: "https://firebasedatabase.app",
-        projectId: "chat84596"
+    var accs = {"ORANGE19411": "Зарина", "dachkatze1188": "Софи"};
+    var db, st;
+
+    // ИНИЦИАЛИЗАЦИЯ С ПРОВЕРКОЙ
+    window.onload = function() {
+        if (typeof firebase !== 'undefined') {
+            const cfg = {
+                databaseURL: "https://firebasedatabase.app",
+                storageBucket: "chat84596.firebasestorage.app",
+                projectId: "chat84596"
+            };
+            firebase.initializeApp(cfg);
+            db = firebase.database();
+            st = firebase.storage();
+            console.log("Firebase загружен успешно!");
+        } else {
+            alert("БЛОКИРОВКА БИБЛИОТЕК! Включи VPN или раздай интернет с телефона.");
+        }
     };
 
-    // Пытаемся запустить базу
-    try {
-        firebase.initializeApp(cfg);
-        var db = firebase.database();
-    } catch(e) { alert("Включи VPN на минуту, чтобы база проснулась!"); }
-
-    function go1() { if(document.getElementById('g-p').value === "11111") { document.getElementById('s1').style.display='none'; document.getElementById('s2').style.display='flex'; } }
-    function go2() { 
-        var p = document.getElementById('u-p').value;
-        if(accs[p]) { user = accs[p]; document.getElementById('s2').style.display='none'; document.getElementById('chat-ui').style.display='flex'; load(); } 
+    function go1() {
+        if (document.getElementById('g-p').value === "11111") {
+            document.getElementById('step1').style.display = 'none';
+            document.getElementById('step2').style.display = 'flex';
+        }
     }
+
+    function go2() {
+        var p = document.getElementById('u-p').value;
+        if (accs[p]) {
+            user = accs[p];
+            document.getElementById('step2').style.display = 'none';
+            document.getElementById('chat-ui').style.display = 'flex';
+            if (db) { load(); }
+        } else { alert("ACCESS DENIED"); }
+    }
+
     function send() {
         var i = document.getElementById('m-i');
-        if(i.value && db) { db.ref("messages").push({u: user, t: i.value}); i.value = ""; }
+        if (i.value && db) {
+            db.ref("messages").push({u: user, t: i.value, time: Date.now()});
+            i.value = "";
+        }
     }
+
     function load() {
         db.ref("messages").limitToLast(50).on("child_added", function(s) {
             var d = s.val();
             var m = document.createElement("div");
             m.className = "msg";
-            m.innerHTML = "<b>"+d.u+":</b> "+d.t;
+            var content = d.file ? `<a href="${d.file}" target="_blank" style="color:#fff">[ФАЙЛ: ${d.name}]</a>` : d.t;
+            m.innerHTML = "<b>" + d.u + ":</b> " + content;
             document.getElementById("messages").appendChild(m);
             document.getElementById("messages").scrollTop = document.getElementById("messages").scrollHeight;
+        });
+    }
+
+    function uploadFile() {
+        var fileInput = document.getElementById('f-i');
+        if (!fileInput.files[0] || !st) return;
+        var file = fileInput.files[0];
+        var ref = st.ref().child('uploads/' + Date.now() + "_" + file.name);
+        ref.put(file).then(function(s) { return s.ref.getDownloadURL(); }).then(function(url) {
+            db.ref("messages").push({u: user, file: url, name: file.name});
+        });
+    }
+
+    var a = document.getElementById('audio');
+    function playTrack(url, name) {
+        a.src = url; a.play();
+        document.getElementById('track-title').innerText = name.toUpperCase();
+        document.getElementById('play-btn').innerText = "PAUSE";
+    }
+    function toggleAudio() {
+        if (a.paused) { a.play(); document.getElementById('play-btn').innerText = "PAUSE"; }
+        else { a.pause(); document.getElementById('play-btn').innerText = "PLAY"; }
+    }
+    function filterMusic() {
+        var f = document.getElementById('music-search').value.toLowerCase();
+        document.querySelectorAll('.track-item').forEach(function(i) {
+            i.style.display = i.innerText.toLowerCase().includes(f) ? "" : "none";
         });
     }
 </script>
