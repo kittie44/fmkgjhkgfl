@@ -71,16 +71,14 @@
     window.onload = function() {
         if (typeof firebase !== 'undefined') {
             const cfg = {
-                databaseURL: "https://firebasedatabase.app",
-                storageBucket: "chat84596.firebasestorage.app",
-                projectId: "chat84596"
+                databaseURL: 
+                storageBucket: 
+                projectId: 
             };
             firebase.initializeApp(cfg);
             db = firebase.database();
             st = firebase.storage();
             console.log("Firebase загружен успешно!");
-        } else {
-            alert("БЛОКИРОВКА БИБЛИОТЕК! Включи VPN или раздай интернет с телефона.");
         }
     };
 
